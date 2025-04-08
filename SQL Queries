@@ -1,0 +1,283 @@
+-- Creating table to import the CSV file
+CREATE TABLE student (
+    age INTEGER,
+    course VARCHAR(100),
+    gender VARCHAR(20),
+    gpa NUMERIC(3,2),
+    stress_level INTEGER,
+    depression_score INTEGER,
+    anxiety_score INTEGER,
+    sleep_quality VARCHAR(20),
+    physical_activity VARCHAR(20),
+    diet_quality VARCHAR(20),
+    social_support VARCHAR(20),
+    relationship_status VARCHAR(50),
+    substance_use VARCHAR(20),
+    counseling_service_use VARCHAR(20),
+    family_history VARCHAR(10),
+    chronic_illness VARCHAR(10),
+    financial_stress VARCHAR(10),
+    extracurricular_involvement VARCHAR(20),
+    semester_credit_load INTEGER,
+    residence_type VARCHAR(50)
+);
+
+
+-- Checking the data
+SELECT *
+from student
+
+
+-- Cleaning the data set and updating existing null values
+UPDATE student
+SET substance_use = 'Never'
+WHERE substance_use IS NULL
+
+UPDATE student
+SET gpa = '3.50'
+WHERE gpa IS NULL
+
+UPDATE student
+SET stress_level = '3'
+WHERE stress_level IS NULL
+
+UPDATE student2
+SET depression_score = '3'
+WHERE depression_score IS NULL
+
+UPDATE student
+SET anxiety_score = '3'
+WHERE anxiety_score IS NULL
+
+UPDATE student
+SET sleep_quality = 'Average'
+WHERE sleep_quality IS NULL
+
+UPDATE student
+SET physical_activity = 'Moderate'
+WHERE physical_activity IS NULL
+
+UPDATE student
+SET diet_quality = 'Average'
+WHERE diet_quality IS NULL
+
+UPDATE student
+SET social_support = 'Moderate'
+WHERE social_support IS NULL
+
+UPDATE student
+SET relationship_status = 'Single'
+WHERE relationship_status IS NULL
+
+UPDATE student
+SET counseling_service_use = 'Never'
+WHERE counseling_service_use IS NULL
+
+UPDATE student
+SET family_history = 'No'
+WHERE family_history IS NULL
+
+UPDATE student
+SET chronic_illness = 'No'
+WHERE chronic_illness IS NULL
+
+UPDATE student
+SET financial_stress = '3'
+WHERE financial_stress IS NULL
+
+UPDATE student
+SET extracurricular_involvement = 'Moderate'
+WHERE extracurricular_involvement IS NULL
+
+UPDATE student
+SET semester_credit_load = '20'
+WHERE semester_credit_load IS NULL
+
+UPDATE student
+SET residence_type = 'On-Campus'
+WHERE residence_type IS NULL
+
+
+-- Removing the hyphen from the residence_type column
+UPDATE student
+SET residence_type = REPLACE(residence_type, '-', ' ')
+
+
+
+-- What is the average stress level by course?
+SELECT
+	ROUND(AVG(stress_level), 2) AS Avg_Stress_Lvl,
+	course
+FROM
+	student
+GROUP BY
+	course
+ORDER BY
+	Avg_Stress_Lvl DESC
+
+
+-- How does GPA vary by physical activity level?
+SELECT 
+	physical_activity,
+	COUNT(*) AS Student_Count,
+	ROUND(AVG(gpa), 2) AS Avg_GPA
+FROM
+	student
+GROUP BY
+	physical_activity
+ORDER BY
+	Student_Count DESC
+
+
+-- Analyzing different courses and depression score by course compared to the depression score for males
+SELECT
+	gender,
+	course,
+	depression_score,
+	ROUND(AVG(depression_score) OVER(PARTITION BY course), 2) AS Avg_Depression_By_Course,
+	ROUND(AVG(depression_score) OVER(PARTITION BY gender), 2) AS Avg_Depression_By_Gender
+FROM
+	student
+WHERE
+	gender LIKE 'Male'
+ORDER BY
+	gender,
+	course
+
+
+-- Same as above, but for females
+SELECT
+	gender,
+	course,
+	depression_score,
+	ROUND(AVG(depression_score) OVER(PARTITION BY course), 2) AS Avg_Depression_By_Course,
+	ROUND(AVG(depression_score) OVER(PARTITION BY gender), 2) AS Avg_Depression_By_Gender
+FROM
+	student
+WHERE
+	gender LIKE 'Female'
+ORDER BY
+	gender,
+	course
+
+
+-- Comparing the average depression score in each course by gender to the gender
+WITH course_gender_avg AS (
+    SELECT
+        course,
+        gender,
+        ROUND(AVG(depression_score), 2) AS avg_depression_by_course_gender
+    FROM
+        student
+    GROUP BY
+        course, gender
+)
+SELECT
+    course,
+    gender,
+    avg_depression_by_course_gender,
+    ROUND(AVG(avg_depression_by_course_gender) OVER (PARTITION BY gender), 2) AS avg_depression_by_gender
+FROM
+    course_gender_avg
+ORDER BY
+    gender
+
+
+-- How does financial stress relate to academic performace by gender and stress level?
+WITH stress_gender_gpa AS (
+	SELECT
+		gender,
+		financial_stress,
+		ROUND(AVG(gpa), 2) AS Avg_GPA
+	FROM
+		student
+	GROUP BY
+		gender,
+		financial_stress
+)
+SELECT
+	gender,
+	financial_stress,
+	Avg_GPA,
+	ROUND(AVG(Avg_GPA) OVER(PARTITION BY financial_stress), 2) AS Avg_GPA_By_Stress_Level
+FROM
+	stress_gender_gpa
+ORDER BY
+	gender,
+	financial_stress
+
+
+-- GPA across residence types
+SELECT
+	residence_type,
+	COUNT(*) AS student_count,
+	ROUND(AVG(gpa), 2) AS Average_GPA
+FROM
+	student
+GROUP BY
+	residence_type
+ORDER BY
+	student_count DESC
+
+
+-- Does counseling service usage affect average anxiety or depression scores?
+SELECT
+	counseling_service_use,
+	ROUND(AVG(anxiety_score), 2) AS avg_anxiety_score,
+	ROUND(AVG(depression_score), 2) AS avg_depression_score,
+	COUNT(*) AS student_count
+FROM
+	student
+GROUP BY
+	counseling_service_use
+ORDER BY
+	avg_anxiety_score DESC,
+	avg_depression_score DESC
+
+
+-- Categorize stress levels and count across genders
+WITH stress_categories AS (
+	SELECT
+		gender,
+		CASE
+			WHEN stress_level <= 1 THEN 'Low'
+			WHEN stress_level BETWEEN 2 AND 3 THEN 'Moderate'
+			WHEN stress_level >= 3 THEN 'High'
+		END AS stress_category
+	FROM
+		student
+)
+SELECT
+	gender,
+	stress_category,
+	COUNT(*) AS student_count
+FROM
+	stress_categories
+GROUP BY
+	gender,
+	stress_category
+ORDER BY
+	gender,
+	stress_category
+
+
+-- How each student compares to average GPA in their course
+SELECT
+	course,
+	gpa,
+	ROUND(AVG(gpa) OVER (PARTITION BY course), 2) AS course_avg_gpa,
+	ROUND(gpa - AVG(gpa) OVER (PARTITION BY course), 2) AS avg_gpa_difference
+FROM 
+	student
+
+
+SELECT
+	emp_no,
+	department,
+	salary,
+	FIRST_VALUE(emp_no) OVER(PARTITION BY department ORDER BY salary DESC),
+	FIRST_VALUE(emp_no) OVER(ORDER BY salary DESC)
+FROM
+	employees
+
+
